@@ -9,7 +9,6 @@
 static void mceventloop(void);
 static int mclineparser(const char *, size_t);
 static int mchandledigit(char *, const char *, size_t, size_t);
-static int mciscommand(const char *);
 static ssize_t mcreadbracket(const char *, size_t, ssize_t);
 static int mcpushdigit(const char *);
 static int mcpushoperator(const char);
@@ -91,7 +90,7 @@ mclineparser(const char * line, size_t len)
 	/*
 	 * Check for built in commands
 	 */
-	if (mciscommand(line))
+	if (iscommand(line))
 		return 0;
 
 	if (!(tmpnum = (char*) malloc(sizeof(*line)))) {
@@ -108,7 +107,7 @@ mclineparser(const char * line, size_t len)
 		/*
 		 * Ignore whitespace
 		 */
-		if (isspace(line[i]))
+		if (isspace((int) line[i]))
 			;
 
 		/*
@@ -132,7 +131,7 @@ mclineparser(const char * line, size_t len)
 		/*
 		 * When we find a number
 		 */
-		else if (isdigit(line[i])) {
+		else if (isdigit((int) line[i])) {
 			if (isnum == 1) {
 				fprintf(stderr, "Syntax error '%c'\n", line[i]);
 				free(tmpnum);
@@ -144,7 +143,7 @@ mclineparser(const char * line, size_t len)
 				return 1;
 			}
 
-			memset(tmpnum, 0, sizeof(*tmpnum));
+			memset(tmpnum, 0, strlen(tmpnum));
 			isnum = 1;
 		}
 
@@ -166,7 +165,9 @@ mclineparser(const char * line, size_t len)
 		}
 	}
 
-	free(tmpnum);
+	if (tmpnum)
+		free(tmpnum);
+
 	return 0;
 }
 
@@ -177,7 +178,7 @@ static int
 mchandledigit(char * s, const char * l, size_t len, size_t index)
 {
 	while (index < len) {
-		if (isdigit(l[index]) || l[index] == '.')
+		if (isdigit((int) l[index]) || l[index] == '.')
 			strncat(s, &l[index++], 1);
 		else {
 			--index;
@@ -187,23 +188,6 @@ mchandledigit(char * s, const char * l, size_t len, size_t index)
 
 	if (mcpushdigit(s))
 		return 1;
-
-	return 0;
-}
-
-/*
- * Checks for built in commands
- */
-static int
-mciscommand(const char * s)
-{
-	int i;
-
-	for (i = 0; i < cmdmapmax; i++) {
-		/* TODO fix issue with quitasdads being valid */
-		if (!strncmp(s, cmdmap[i].str, strlen(cmdmap[i].str)))
-			cmdmap[i].fn(s);
-	}
 
 	return 0;
 }
@@ -325,7 +309,7 @@ mcisdigit(const char * s)
 	int dc = 0;
 
 	/* Scan first element seperately */
-	if (!isdigit(s[0])) {
+	if (!isdigit((int) s[0])) {
 		if (s[0] == '.')
 			dc++;
 
@@ -342,12 +326,13 @@ mcisdigit(const char * s)
 		if (*s == '.')
 			dc++;
 
+		/* Dont allow any +- past first digit */
 		else if (*s == '+' || *s == '-') {
 			fprintf(stderr, "%s is not numeric\n", s);
 			return 0;
 		}
 
-		else if (!isdigit(*s)) {
+		else if (!isdigit((int) *s)) {
 			fprintf(stderr, "%s is not numeric\n", s);
 			return 0;
 		}
